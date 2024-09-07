@@ -36,6 +36,6 @@ Song midis also have a settings.ini that can tweak a certain values:
 - ```STRUMLINE_0_CHANNEL``` (makes the midi to only load a specific channel)
 
 
-If a ```midi/``` folder exists in a song folder, the vocals file will be automatically removed so that the midi can play instead (mainly for addon mods).
+If a ```midi/``` folder exists in a song folder, the vocals file will not play in game so that the midi can play instead (mainly for addon mods).
 
 If a character has the same name as a chromatic it will be used, and if a ```chromatic``` value is added into the character xml it will be loaded instead.
