@@ -1,6 +1,8 @@
+import flixel.FlxG;
 import flixel.math.FlxMath;
 import funkin.menus.MainMenuState;
 import flixel.FlxSprite;
+import flixel.input.keyboard.FlxKey;
 import funkin.editors.ui.UIText;
 import funkin.editors.ui.UINumericStepper;
 import funkin.editors.ui.UIFileExplorer;
@@ -10,6 +12,7 @@ import funkin.editors.ui.UICheckbox;
 import funkin.editors.ui.UIWindow;
 import funkin.editors.ui.UISlider;
 import funkin.editors.ui.UITopMenu;
+import funkin.editors.ui.UIUtil;
 import funkin.editors.charter.CharterWaveformHandler;
 import funkin.editors.EditorTreeMenu;
 import funkin.backend.system.framerate.Framerate;
@@ -27,11 +30,14 @@ var keysCamera:FlxCamera;
 
 var optionsWindow:UIWindow;
 var gapStepper:UINumericStepper;
-var volumeStepper:UINumericStepper;
+var timeOffsetStepper:UINumericStepper;
 var loopStartStepper:UINumericStepper;
 var loopEndStepper:UINumericStepper;
 var startOctaveStepper:UINumericStepper;
-var timeOffsetStepper:UINumericStepper;
+var keyOffsetStepper:UINumericStepper;
+var volumeStepper:UINumericStepper;
+
+var topMenu = [];
 
 function postCreate() {
 	
@@ -40,25 +46,46 @@ function postCreate() {
 	add(bg);
 	FlxG.mouse.visible = true;
 
-	add(new UITopMenu([
+	topMenu = [
 		{
 			label: "File",
 			childs: [
 				{
 					label: "Save",
-					onSelect: (t) -> {save();}
+					keybind: [FlxKey.CONTROL, FlxKey.S],
+					onSelect: _save
 				},
 				null,
 				{
 					label: "Exit",
-					onSelect: (t) -> {exit();}
+					onSelect: _exit
 				}
 			]
 		},
 		{
-			label: "View"
+			label: "View",
+			childs: [
+				{
+					label: "Zoom in",
+					keybind: [FlxKey.Q],
+					onSelect: _zoomIn
+				},
+				{
+					label: "Zoom out",
+					keybind: [FlxKey.E],
+					onSelect: _zoomOut
+				},
+				{
+					label: "Reset zoom",
+					keybind: [FlxKey.R],
+					onSelect: _zoomReset
+				},
+			]
 		}
-	]));
+	];
+
+	var tmSpr = new UITopMenu(topMenu);
+	add(tmSpr);
 
 
 	chromatic = new ChromaticScale();
@@ -144,7 +171,25 @@ function postCreate() {
 	add(gapStepper);
 	var gapText = addLabelOn(gapStepper, "Sample Time Gap (milliseconds)");
 	gapStepper.x += (gapText.width*0.5) - (gapStepper.bWidth*0.5);
-	addStepperButtons(gapStepper, 1, 50, 35);
+	addStepperButtons(gapStepper, 1, 50, 36);
+
+	timeOffsetStepper = new UINumericStepper(optionsWindow.x + 20, optionsWindow.y + 150, chromatic.timeOffset, 1, 2, 0, 999999, 120);
+	timeOffsetStepper.onChange = function(str) {
+		var val = Std.parseFloat(str);
+		if (!Math.isNaN(val)) {
+			timeOffsetStepper.value = val;
+
+			chromatic.timeOffset = timeOffsetStepper.value;
+			refreshKeys();
+			waveformSprite.refreshMarkers(chromatic.timeDiff);
+		}
+	};
+	add(timeOffsetStepper);
+	var offsetText = addLabelOn(timeOffsetStepper, "Time Offset (milliseconds)");
+	timeOffsetStepper.x = gapStepper.x;
+	offsetText.x = timeOffsetStepper.x + (timeOffsetStepper.bWidth*0.5) - (offsetText.width*0.5);
+	addStepperButtons(timeOffsetStepper, 1, 50, 36);
+
 
 	loopStartStepper = new UINumericStepper(optionsWindow.x + 350, optionsWindow.y + 75, chromatic.loopStart, 1, 3, 0, 1, 100);
 	loopStartStepper.onChange = function(str) {
@@ -157,7 +202,7 @@ function postCreate() {
 	add(loopStartStepper);
 	var lsText = addLabelOn(loopStartStepper, "Loop Start (0-1)");
 	loopStartStepper.x += (lsText.width*0.5) - (loopStartStepper.bWidth*0.5);
-	addStepperButtons(loopStartStepper, 0.01, 0.1, 35);
+	addStepperButtons(loopStartStepper, 0.01, 0.1, 36);
 
 	loopEndStepper = new UINumericStepper(optionsWindow.x + 350, optionsWindow.y + 150, chromatic.loopEnd, 1, 3, 0, 1, 100);
 	loopEndStepper.onChange = function(str) {
@@ -170,7 +215,51 @@ function postCreate() {
 	add(loopEndStepper);
 	var leText = addLabelOn(loopEndStepper, "Loop End (0-1)");
 	loopEndStepper.x = loopStartStepper.x;
-	addStepperButtons(loopEndStepper, 0.01, 0.1, 35);
+	addStepperButtons(loopEndStepper, 0.01, 0.1, 36);
+
+
+	volumeStepper = new UINumericStepper(optionsWindow.x + 800, optionsWindow.y + 75, chromatic.volume, 1, 3, 0, 1, 100);
+	volumeStepper.onChange = function(str) {
+		var val = Std.parseFloat(str);
+		if (!Math.isNaN(val)) {
+			volumeStepper.value = val;
+			chromatic.volume = volumeStepper.value;
+		}
+	};
+	add(volumeStepper);
+	var volumeText = addLabelOn(volumeStepper, "Volume (0-1)");
+	volumeStepper.x += (volumeText.width*0.5) - (volumeStepper.bWidth*0.5);
+	addStepperButtons(volumeStepper, 0.05, 0.0, 36);
+
+
+	startOctaveStepper = new UINumericStepper(optionsWindow.x + 590, optionsWindow.y + 75, chromatic.startOctave+1, 1, 0, 0, 10, 100);
+	startOctaveStepper.onChange = function(str) {
+		var val = Std.parseFloat(str);
+		if (!Math.isNaN(val)) {
+			startOctaveStepper.value = val;
+			chromatic.startOctave = startOctaveStepper.value-1; //offset to match correctly with the keys on the side (cuz it starts at -1 in code)
+			refreshKeys();
+		}
+	};
+	add(startOctaveStepper);
+	var octaveText = addLabelOn(startOctaveStepper, "Starting Octave");
+	startOctaveStepper.x += (octaveText.width*0.5) - (startOctaveStepper.bWidth*0.5);
+	addStepperButtons(startOctaveStepper, 1, 0.0, 36);
+
+	keyOffsetStepper = new UINumericStepper(optionsWindow.x + 590, optionsWindow.y + 150, chromatic.keyOffset, 1, 0, -12, 12, 100);
+	keyOffsetStepper.onChange = function(str) {
+		var val = Std.parseFloat(str);
+		if (!Math.isNaN(val)) {
+			keyOffsetStepper.value = val;
+			chromatic.keyOffset = keyOffsetStepper.value;
+			refreshKeys();
+		}
+	};
+	add(keyOffsetStepper);
+	var keyOffsetText = addLabelOn(keyOffsetStepper, "Key Offset");
+	keyOffsetStepper.x = startOctaveStepper.x;
+	keyOffsetText.x = keyOffsetStepper.x + (keyOffsetStepper.bWidth*0.5) - (keyOffsetText.width*0.5);
+	addStepperButtons(keyOffsetStepper, 1, 0.0, 36);
 
 }
 
@@ -185,6 +274,8 @@ function update(elapsed) {
 	waveformSprite.updateWaveform();
 
 
+	if(FlxG.keys.justPressed.ANY && currentFocus == null)
+		UIUtil.processShortcuts(topMenu);
 
 }
 
@@ -274,11 +365,21 @@ function destroy() {
 
 
 
-function exit() {
+function _exit() {
 	var state = new EditorTreeMenu();
 	state.scriptName = "ChromaticSelectState";
 	FlxG.switchState(state);
 }
-function save() {
+function _save() {
+	trace("saved");
 	chromatic.saveIniFile(SELECTED_CHROM);
+}
+function _zoomIn() {
+	waveformSprite.setZoom(waveformSprite.zoom - 1);
+}
+function _zoomOut() {
+	waveformSprite.setZoom(waveformSprite.zoom + 1);
+}
+function _zoomReset() {
+	waveformSprite.setZoom(1.0);
 }

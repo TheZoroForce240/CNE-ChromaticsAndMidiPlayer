@@ -74,6 +74,8 @@ function postCreate() {
 		chrom.midiVolume = midiVolume;
 
 		var dropdown = new UIDropDown(20, 100 + (32*i), 320, 32, chromList);
+		dropdown.label.text = "BF";
+		dropdown.index = chromList.indexOf("BF");
 		dropdown.screenCenter(FlxAxes.X);
 		dropdown.x -= 160;
 		dropdown.scrollFactor.set();
@@ -98,11 +100,11 @@ function postCreate() {
 
 			switch(strumline.type) {
 				case 1: 
-					printMidiTracks(midi, 0xFF00BFFF, 640);
+					printMidiTracks(midi, 0xFF00BFFF, 640, channel, track);
 				case 2:
-					printMidiTracks(midi, 0xFFFF0051, 320);
+					printMidiTracks(midi, 0xFFFF0051, 320, channel, track);
 				default:
-					printMidiTracks(midi, 0xFFFF4D00, 0);
+					printMidiTracks(midi, 0xFFFF4D00, 0, channel, track);
 			}
 			
 		}
@@ -117,36 +119,43 @@ function onFocusLost() {
 	FlxG.sound.music.pause();
 }
 
-function printMidiTracks(midi, color, offset) {
+function printMidiTracks(midi, color, offset, channel, trackNum) {
 	var curNotes:Array<FlxSprite> = [];
 	for (i in 0...127) {
 		curNotes.push(null);
 	}
+	var trackIndex = 0;
 	for (track in midi.tracks) {
-		for (event in track.events) {
-			if (event.type == 0x90) {
-				curNotes[event.param1] = new FlxSprite((FlxG.width*0.5) - (event.param1 * ((FlxG.width*0.5)/128)) + offset, 
-					FlxG.height - convertTicksToMilliseconds(event.time, Conductor.bpm, midi.ticksPerQuarterNote));
-
-				curNotes[event.param1].makeGraphic(1,1, color);
-				//curNotes[event.param1].setGraphicSize((FlxG.width*0.5)/128, (FlxG.width*0.5)/128);
-				//curNotes[event.param1].updateHitbox();
-				add(curNotes[event.param1]);
-				notes.push(curNotes[event.param1]);
-				
-			} else if (event.type == 0x80) {
-
-				if (curNotes[event.param1] != null) {
-
-					var y = FlxG.height - convertTicksToMilliseconds(event.time, Conductor.bpm, midi.ticksPerQuarterNote);
-					var diff = Math.abs(curNotes[event.param1].y - y);
-
-					curNotes[event.param1].setGraphicSize((FlxG.width*0.5)/128, diff-20);
-					curNotes[event.param1].updateHitbox();
-					curNotes[event.param1].y -= curNotes[event.param1].height;
+		if (trackNum == null || (trackIndex == trackNum)) {
+			for (event in track.events) {
+				if (channel == null || (event.channel == channel)) {
+					if (event.type == 0x90) {
+						curNotes[event.param1] = new FlxSprite((FlxG.width*0.5) - (event.param1 * ((FlxG.width*0.5)/128)) + offset, 
+							FlxG.height - convertTicksToMilliseconds(event.time, Conductor.bpm, midi.ticksPerQuarterNote));
+		
+						curNotes[event.param1].makeGraphic(1,1, color);
+						//curNotes[event.param1].setGraphicSize((FlxG.width*0.5)/128, (FlxG.width*0.5)/128);
+						//curNotes[event.param1].updateHitbox();
+						add(curNotes[event.param1]);
+						notes.push(curNotes[event.param1]);
+						
+					} else if (event.type == 0x80) {
+		
+						if (curNotes[event.param1] != null) {
+		
+							var y = FlxG.height - convertTicksToMilliseconds(event.time, Conductor.bpm, midi.ticksPerQuarterNote);
+							var diff = Math.abs(curNotes[event.param1].y - y);
+		
+							curNotes[event.param1].setGraphicSize((FlxG.width*0.5)/128, diff-20);
+							curNotes[event.param1].updateHitbox();
+							curNotes[event.param1].y -= curNotes[event.param1].height;
+						}
+					}
 				}
 			}
 		}
+
+		trackIndex++;
 	}
 }
 

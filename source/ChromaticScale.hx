@@ -4,24 +4,74 @@ import funkin.backend.system.Logs;
 
 class ChromaticScale extends FlxBasic {
 	
+	/**
+	 * Stores a set of sounds, with the currently playing key, octave and velocity
+	 */
 	public var soundData = [];
 
+	/**
+	 * Sound object (only used by waveform in editor)
+	 */
 	public var sound:FlxSound = null;
 
+	///settings
+	/////////////////////////////////////////////
+
+	/**
+	 * Chromatic Volume settings
+	 */
 	public var volume:Float = 1.0;
+	/**
+	 * Starting octave of the chromatic, 3 means it will start at C4 (the note octave starts at -1 in the code)
+	 */
 	public var startOctave:Int = 3;
+	/**
+	 * Audio offset for markers in milliseconds
+	 */
 	public var timeOffset:Float = 0;
+	/**
+	 * Difference bettwen each sample in milliseconds
+	 */
 	public var timeDiff:Float = 2000;
+	/**
+	 * Percentage of sample time that the loop ends at
+	 */
 	public var loopEnd:Float = 0.75;
+	/**
+	 * Percentage of sample time that the loop will repeat at
+	 */
 	public var loopStart:Float = 0.5;
+	/**
+	 * Note key offset
+	 */
 	public var keyOffset:Int = 0;
 
+	/////////////////////////////////////////////////
+
+	/**
+	 * Midi events list
+	 */
 	public var events:Array<Dynamic> = [];
 
+	/**
+	 * Midi Volume Setting
+	 */
 	public var midiVolume:Float = 1.0;
 
+	/**
+	 * Vocal volume (used in game for muting on misses)
+	 */
+	public var vocalVolume:Float = 1.0;
+
+	/**
+	 * Name of the .ogg/ini file that was loaded
+	 */
 	public var chromName:String = "";
 
+	/**
+	 * Loads the chromatic from its .ogg and .ini file inside the ```chromatics/``` folder
+	 * @param name Chromatic file name
+	 */
 	public function initFromFile(name:String) {
 		var path = Paths.getPath("chromatics/"+name);
 		if (!Assets.exists(path+".ogg")) return;
@@ -59,6 +109,11 @@ class ChromaticScale extends FlxBasic {
 
 		verifyBounds(true);
 	}
+
+	/**
+	 * Saves the chromatic .ini with its current settings
+	 * @param name .ini file name
+	 */
 	public function saveIniFile(name:String) {
 
 		var fileData:String = "";
@@ -80,7 +135,7 @@ class ChromaticScale extends FlxBasic {
 				data.curOctave = octave;
 				data.curVelocity = velocity;
 				data.sound.play(true, timeOffset + (((octave-startOctave)*12) + note + keyOffset)*timeDiff);
-				data.sound.volume = volume * (data.curVelocity / 100) * midiVolume;
+				data.sound.volume = volume * (data.curVelocity / 100) * midiVolume * vocalVolume;
 				break;
 			}				
 		}		
@@ -93,7 +148,7 @@ class ChromaticScale extends FlxBasic {
 				if (data.sound.time >= timeStarted + (timeDiff*loopEnd)) {
 					data.sound._channel.position = timeStarted + timeDiff*loopStart;
 				}
-				data.sound.volume = volume * (data.curVelocity / 100) * midiVolume;
+				data.sound.volume = volume * (data.curVelocity / 100) * midiVolume * vocalVolume;
 			}
 		}
 
@@ -146,9 +201,9 @@ class ChromaticScale extends FlxBasic {
 		maxNote = 0;
 
 		for (track in midi.tracks) {
-			if (trackNum == null || (trackNum != null && trackIndex == trackNum)) {
+			if (trackNum == null || (trackIndex == trackNum)) {
 				for (event in track.events) {
-					if (channel == null || (channel != null && event.channel == channel)) {
+					if (channel == null || (event.channel == channel)) {
 						if (event.type == 0x90 || event.type == 0x80) {
 							var e = {
 								time: convertTicksToMilliseconds(event.time, Conductor.bpm, midi.ticksPerQuarterNote),
@@ -217,6 +272,15 @@ class ChromaticScale extends FlxBasic {
 
 	public function convertMillisecondsToTicks(milliseconds, bpm, ppq) {
 		return milliseconds / (60000 / (bpm * ppq));
+	}
+
+	public function setVocalVolume(vol:Float) {
+		vocalVolume = vol;
+		for (data in soundData) {
+			if (data.sound.playing) {
+				data.sound.volume = volume * (data.curVelocity / 100) * midiVolume * vocalVolume;
+			}
+		}
 	}
 
 

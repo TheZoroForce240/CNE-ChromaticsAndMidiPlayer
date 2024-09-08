@@ -64,5 +64,20 @@ function create() {
 	vocals = new FlxSound();
 }
 
-function postUpdate(elapsed) {
+function onPlayerMiss(event) {
+	if (_hasMidi && event.muteVocals) {
+		var id = event.playerID;
+		if (chromatics[id] != null) chromatics[id].setVocalVolume(0.0);
+	}
+}
+function onNoteHit(event) {
+	if (_hasMidi && event.unmuteVocals) {
+		var id = event.note.strumLine.ID;
+		if (chromatics[id] != null && chromatics[id].vocalVolume != 1.0) chromatics[id].setVocalVolume(1.0);
+	}
+}
+function onPostGameOver(event) {
+	if (_hasMidi) {
+		for (chrom in chromatics) chrom.setVocalVolume(0.0);
+	}
 }
