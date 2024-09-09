@@ -1,3 +1,4 @@
+import funkin.backend.FunkinText;
 import flixel.math.FlxRect;
 import funkin.backend.system.Conductor;
 import flixel.math.FlxMath;
@@ -12,6 +13,7 @@ class ChromaticWaveform extends flixel.FlxSprite {
 	public var waveformHandler:CharterWaveformHandler;
 	public var sound:FlxSound;
 	public var zoom:Float = 1.0;
+	public var markerText:FlxSpriteGroup;
 	public var markers:FlxSpriteGroup;
 	public var timeSprite:FlxSprite;
 	public var loopStartSpr:FlxSprite;
@@ -50,6 +52,7 @@ class ChromaticWaveform extends flixel.FlxSprite {
 			loopEndSpr.screenCenter();
 
 			markers = new FlxSpriteGroup();
+			markerText = new FlxSpriteGroup();
 		}
 		this.sound = sound;
 		var stepTime = Conductor.getStepForTime(sound.length);
@@ -59,11 +62,18 @@ class ChromaticWaveform extends flixel.FlxSprite {
 		waveformHandler.waveformList.push("chromatic");
 	}
 
-	public function refreshMarkers(diff) {
+	public function refreshMarkers(diff, startOctave, keyOffset) {
+		for (m in markers)
+			m.destroy();
+		for (t in markerText)
+			t.destroy();
+
 		markers.clear();
+		markerText.clear();
 		markerDiff = diff;
 
 		var count = Math.ceil(sound.length / diff);
+		var notes = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 
 		for (i in 0...count) {
 			var spr = new FlxSprite();
@@ -72,6 +82,11 @@ class ChromaticWaveform extends flixel.FlxSprite {
 			spr.updateHitbox();
 			spr.screenCenter();
 			markers.add(spr);
+
+			var n = (i + keyOffset) + ((startOctave+1)*12);
+
+			var text = new FunkinText(0,0,0, notes[n%12] + "" + Math.floor(n / 12), 32);
+			markerText.add(text);
 		}
 	}
 	public var timeOffset = 0.0;
@@ -101,6 +116,9 @@ class ChromaticWaveform extends flixel.FlxSprite {
 				spr.visible = false;
 			else
 				spr.visible = true;
+			markerText.members[i].x = spr.x;
+			markerText.members[i].y = spr.y;
+			markerText.members[i].visible = spr.visible;
 		}
 
 		timeSprite.visible = sound.playing;

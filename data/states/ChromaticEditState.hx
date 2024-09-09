@@ -19,11 +19,12 @@ import funkin.backend.system.framerate.Framerate;
 import ChromaticScale;
 import ChromaticWaveform;
 
+var notes = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+
 var chromatic:ChromaticScale = null;
 
 var waveformSprite:ChromaticWaveform;
 
-var notes = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 var previewKeys:Array<UIButton> = [];
 var keysWindow:UIWindow;
 var keysCamera:FlxCamera;
@@ -96,10 +97,11 @@ function postCreate() {
 
 	waveformSprite = new ChromaticWaveform();
 	waveformSprite.initSound(chromatic.soundData[0].sound);
-	waveformSprite.refreshMarkers(chromatic.timeDiff);
+	waveformSprite.refreshMarkers(chromatic.timeDiff, chromatic.startOctave, chromatic.keyOffset);
 	add(waveformSprite);
 	add(waveformSprite.waveformHandler);
 	add(waveformSprite.markers);
+	add(waveformSprite.markerText);
 	add(waveformSprite.loopStartSpr);
 	add(waveformSprite.loopEndSpr);
 	add(waveformSprite.timeSprite);
@@ -165,7 +167,7 @@ function postCreate() {
 
 			chromatic.timeDiff = gapStepper.value;
 			refreshKeys();
-			waveformSprite.refreshMarkers(chromatic.timeDiff);
+			waveformSprite.refreshMarkers(chromatic.timeDiff, chromatic.startOctave, chromatic.keyOffset);
 		}
 	};
 	add(gapStepper);
@@ -181,7 +183,7 @@ function postCreate() {
 
 			chromatic.timeOffset = timeOffsetStepper.value;
 			refreshKeys();
-			waveformSprite.refreshMarkers(chromatic.timeDiff);
+			waveformSprite.refreshMarkers(chromatic.timeDiff, chromatic.startOctave, chromatic.keyOffset);
 		}
 	};
 	add(timeOffsetStepper);
