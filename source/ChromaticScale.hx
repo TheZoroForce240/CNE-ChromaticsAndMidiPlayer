@@ -201,33 +201,41 @@ class ChromaticScale extends FlxBasic {
 		maxNote = 0;
 
 		for (track in midi.tracks) {
+			var curBPMChange:Int = 0;
 			if (trackNum == null || (trackIndex == trackNum)) {
 				for (event in track.events) {
-					if (channel == null || (event.channel == channel)) {
-						if (event.type == 0x90 || event.type == 0x80) {
-							var e = {
-								time: convertTicksToMilliseconds(event.time, Conductor.bpm, midi.ticksPerQuarterNote),
-								note: event.param1+offset,
-								isOff: event.type != 0x90,
-								channel: event.channel,
-								velocity: event.param2
-							};
-							if (lastEvent != null && e.note == lastEvent.note && e.isOff == lastEvent.isOff) {
-								//trace("skip");
-								continue;
+						if (event.type == 0x90 || event.type == 0x80) { //note on or off
+							if (channel == null || (event.channel == channel)) {
+
+								if (midi.bpmChangeMap[curBPMChange+1] != null) {
+									var nextChange = midi.bpmChangeMap[curBPMChange+1];
+									if (event.time >= nextChange.tickTime)
+										curBPMChange++; //go to next change
+								}
+
+								var currentBPMData = midi.bpmChangeMap[curBPMChange];
+
+								var e = {
+									time: currentBPMData.time + convertTicksToMilliseconds(event.time - currentBPMData.tickTime, currentBPMData.bpm, midi.ticksPerQuarterNote),
+									note: event.param1+offset,
+									isOff: event.type != 0x90,
+									channel: event.channel,
+									velocity: event.param2
+								};
+								if (lastEvent != null && e.note == lastEvent.note && e.isOff == lastEvent.isOff) {
+									//trace("skip");
+									continue;
+								}
+	
+								if (e.note < minNote) minNote = e.note;
+								if (e.note > maxNote) maxNote = e.note;
+	
+								lastEvent = e;
+								if (FlxG.sound.music == null || FlxG.sound.music.time <= e.time) events.push(e);
 							}
-
-							if (e.note < minNote) minNote = e.note;
-							if (e.note > maxNote) maxNote = e.note;
-
-							lastEvent = e;
-							if (FlxG.sound.music == null || FlxG.sound.music.time <= e.time) events.push(e);
-						}
-							
+						}	
 					}
-				}
 			}
-
 			trackIndex++;
 		}
 		events.sort(function(a, b) {

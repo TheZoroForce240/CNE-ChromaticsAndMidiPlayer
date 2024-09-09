@@ -126,12 +126,24 @@ function printMidiTracks(midi, color, offset, channel, trackNum) {
 	}
 	var trackIndex = 0;
 	for (track in midi.tracks) {
+		var curBPMChange:Int = 0;
 		if (trackNum == null || (trackIndex == trackNum)) {
 			for (event in track.events) {
 				if (channel == null || (event.channel == channel)) {
+
+					if (midi.bpmChangeMap[curBPMChange+1] != null) {
+						var nextChange = midi.bpmChangeMap[curBPMChange+1];
+						if (event.time >= nextChange.tickTime)
+							curBPMChange++; //go to next change
+					}
+
+					var currentBPMData = midi.bpmChangeMap[curBPMChange];
+
+					var t = currentBPMData.time + convertTicksToMilliseconds(event.time - currentBPMData.tickTime, currentBPMData.bpm, midi.ticksPerQuarterNote);
+
 					if (event.type == 0x90) {
 						curNotes[event.param1] = new FlxSprite((FlxG.width*0.5) - (event.param1 * ((FlxG.width*0.5)/128)) + offset, 
-							FlxG.height - convertTicksToMilliseconds(event.time, Conductor.bpm, midi.ticksPerQuarterNote));
+							FlxG.height - t);
 		
 						curNotes[event.param1].makeGraphic(1,1, color);
 						//curNotes[event.param1].setGraphicSize((FlxG.width*0.5)/128, (FlxG.width*0.5)/128);
@@ -143,7 +155,7 @@ function printMidiTracks(midi, color, offset, channel, trackNum) {
 		
 						if (curNotes[event.param1] != null) {
 		
-							var y = FlxG.height - convertTicksToMilliseconds(event.time, Conductor.bpm, midi.ticksPerQuarterNote);
+							var y = FlxG.height - t;
 							var diff = Math.abs(curNotes[event.param1].y - y);
 		
 							curNotes[event.param1].setGraphicSize((FlxG.width*0.5)/128, diff-20);

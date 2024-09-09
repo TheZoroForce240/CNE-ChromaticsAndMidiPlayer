@@ -1,3 +1,4 @@
+import flixel.math.FlxMath;
 import sys.FileSystem;
 import funkin.backend.system.Conductor;
 import openfl.Assets;
@@ -66,6 +67,7 @@ function generateEmptyMidiFile() {
 		ticksPerQuarterNote: 120,
 		format: 0,
 		trackLength: 0,
+		bpmChangeMap: []
 	};
 }
 function generateEmptyMidiTrack() {
@@ -113,6 +115,35 @@ function parseMidi(midi) {
 		midi.tracks.push(curTrack);
 	}
 
+	return initBPMChanges(midi);
+}
+
+function initBPMChanges(midi) {
+	var bpmChangeMap = [];
+	bpmChangeMap.push({
+		tickTime: 0,
+		time: 0,
+		bpm: Conductor.bpm,
+	});
+
+	for (track in midi.tracks) {
+		for (event in track.events) {
+			//check bpm/time sig changes
+			for (event in track.events) {
+				if (event.type == 81) {
+					//calculate time
+					var lastChange = bpmChangeMap[bpmChangeMap.length-1];
+					var time = lastChange.time + convertTicksToMilliseconds(event.time - lastChange.tickTime, lastChange.bpm, midi.ticksPerQuarterNote);
+					bpmChangeMap.push({
+						tickTime: event.time,
+						time: time,
+						bpm: event.param1,
+					});
+				}
+			}
+		}
+	}
+	midi.bpmChangeMap = bpmChangeMap;
 	return midi;
 }
 
@@ -140,17 +171,44 @@ function parseTrack(track, midi) {
 			case 0xFF | -1: //meta
 				status = 0xFF; //should be 0xFF but it gets turned into -1 for some reason
 				var type = midi.bytes.readByte();
-				
-
-				//trace("meta");
-				//trace(StringTools.hex(type));
 
 				if (type >= 0x01 && type <= 0x0F) {
                     var text = midi.bytes.readUTFBytes(readVariableLengthInt(midi.bytes)); //text
 				} else {
 					//other meta events
-					var len = readVariableLengthInt(midi.bytes);
-					midi.bytes.position += len;
+					switch(type) {
+						case 0x20: //channel prefix
+							midi.bytes.position += 2;
+						case 0x2F: //end of track
+							midi.bytes.position += 1;
+						case 0x51: //set tempo
+							midi.bytes.position += 1;
+							var event = generateEmptyMidiEvent();
+							event.type = type;
+							event.delta = deltaTime;
+							event.time = time;
+							event.status = status;
+							var bpm = FlxMath.roundDecimal(60000000.0 / read6ByteInt(midi.bytes), 3);
+							event.param1 = bpm; 
+							track.events.push(event);
+							
+						case 0x54: //smpte offset
+							midi.bytes.position += 6;
+						case 0x58: //time signature
+							midi.bytes.position += 1;
+
+							var nn = midi.bytes.readByte();
+							var dd = midi.bytes.readByte();
+							var cc = midi.bytes.readByte();
+							var bb = midi.bytes.readByte();
+
+							//trace(nn + "/" + dd + " : " + cc + " : " + bb);
+							
+						default:	
+							var len = readVariableLengthInt(midi.bytes);
+							midi.bytes.position += len;
+					}
+
 				}
 			case 0xF7: //sys ex cont
 				trace("sys ex cont");
@@ -212,4 +270,11 @@ function readVariableLengthInt(bytes) {
 	}
 
 	return result;
+}
+
+function read6ByteInt(bytes) {
+	var b1 = bytes.readByte();
+	var b2 = bytes.readByte();
+	var b3 = bytes.readByte();
+	return (b3 & 0xFF) | ((b2 & 0xFF) << 8) | ((b1 & 0xFF) << 16);
 }
